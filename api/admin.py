@@ -6,6 +6,8 @@ from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
 from api.models import Account
 
+COMMON_PASSWORDS = ['password', '12345678', 'qwerty', 'abc123']
+
 
 class UserCreationForm(forms.ModelForm):
     """A form for creating new users. Includes all the required
@@ -25,6 +27,19 @@ class UserCreationForm(forms.ModelForm):
         password2 = self.cleaned_data.get("password2")
         if password1 and password2 and password1 != password2:
             raise forms.ValidationError("Passwords don't match")
+
+        # Check for password length
+        if len(password1) < 8:
+            raise forms.ValidationError(
+                "Password must be at least 8 characters long")
+
+        # Check that the password is not entirely numeric
+        if password1.isdigit():
+            raise forms.ValidationError("Password cannot be entirely numeric")
+
+        # Check that the password is not common
+        if password1.lower() in COMMON_PASSWORDS:
+            raise forms.ValidationError("Password is too common")
         return password2
 
     def save(self, commit=True):
@@ -41,7 +56,10 @@ class UserChangeForm(forms.ModelForm):
     the user, but replaces the password field with admin's
     password hash display field.
     """
-    password = ReadOnlyPasswordHashField()
+    password = ReadOnlyPasswordHashField(label=("Password"),
+                                         help_text=("Raw passwords are not stored, so there is no way to see "
+                                                    "this user's password, but you can change the password "
+                                                    "using <a href=\"../password/\">this form</a>."))
 
     class Meta:
         model = Account
@@ -64,11 +82,12 @@ class UserAdmin(BaseUserAdmin):
     # These override the definitions on the base UserAdmin
     # that reference specific fields on auth.User.
     list_display = ('username', 'firstName', 'lastName', 'accountRole',
-                  'is_active', 'is_staff', 'is_superuser')
+                    'is_active', 'is_staff', 'is_superuser')
     list_filter = ('is_superuser',)
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Personal info', {'fields': ('firstName', 'lastName', 'accountRole',)}),
+        ('Personal info', {
+         'fields': ('firstName', 'lastName', 'accountRole',)}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
     )
     # add_fieldsets is not a standard ModelAdmin attribute. UserAdmin
@@ -76,8 +95,8 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('accountID','username', 'firstName', 'lastName', 'accountRole',
-                  'is_active', 'is_staff', 'is_superuser', 'password1', 'password2')}
+            'fields': ('accountID', 'username', 'firstName', 'lastName', 'accountRole',
+                       'is_active', 'is_staff', 'is_superuser', 'password1', 'password2')}
          ),
     )
     search_fields = ('username',)
